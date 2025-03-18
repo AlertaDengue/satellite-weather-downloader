@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [1.11.3](https://github.com/AlertaDengue/satellite-weather-downloader/compare/1.11.2...1.11.3) (2025-03-18)
+
+
+### Bug Fixes
+
+* **pkg:** include read-only flag on ADM db ([#74](https://github.com/AlertaDengue/satellite-weather-downloader/issues/74)) ([9a09243](https://github.com/AlertaDengue/satellite-weather-downloader/commit/9a092436c7f9f4d3e5695740756715cbcd63406c))
+
 ## [1.11.2](https://github.com/AlertaDengue/satellite-weather-downloader/compare/1.11.1...1.11.2) (2025-03-18)
 
 
