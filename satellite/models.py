@@ -66,7 +66,8 @@ class Area:
             raise ValueError("Longitude must be between -180 and 180")
 
 
-class Specs(BaseModel): ...
+class Specs(BaseModel):
+    ...
 
 
 class BaseRequest(ABC, BaseModel):
@@ -233,7 +234,8 @@ class ERA5LandRequest(BaseRequest):
     name: Literal["reanalysis-era5-land"] = Field(
         default="reanalysis-era5-land", validate_default=True
     )
-    request: ERA5LandSpecs = Field(default=ERA5LandSpecs(), validate_default=True)
+    request: ERA5LandSpecs = Field(
+        default=ERA5LandSpecs(), validate_default=True)
 
     # pylint: disable=maybe-no-member
     def download(self, output: str) -> str:
@@ -262,7 +264,7 @@ class ERA5LandRequest(BaseRequest):
                     "date": request.date,
                     "time": request.time,
                     "area": request.area,
-                    "format": request.format,
+                    "data_format": request.format,
                     "download_format": request.download_format,
                 },
                 str(output),

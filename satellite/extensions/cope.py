@@ -128,7 +128,7 @@ def _adm_to_dataframe(dataset: xr.Dataset, adm: ADM) -> pd.DataFrame:
     df = ds.to_dataframe().reset_index()
     del ds
     df = df.drop(columns=["poly_idx", "name"])
-    df = df.assign(epiweek=str(Week.fromdate(pd.to_datetime(df.time)[0])))
+    df = df.assign(epiweek=int(str(Week.fromdate(pd.to_datetime(df.time)[0]))))
     columns_to_round = list(
         set(df.columns).difference(set(["time", "code", "epiweek"]))
     )
