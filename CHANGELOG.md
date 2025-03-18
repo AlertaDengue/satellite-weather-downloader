@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [1.11.2](https://github.com/AlertaDengue/satellite-weather-downloader/compare/1.11.1...1.11.2) (2025-03-18)
+
+
+### Bug Fixes
+
+* **dtype:** update epiweek column to integer ([#73](https://github.com/AlertaDengue/satellite-weather-downloader/issues/73)) ([0397a2c](https://github.com/AlertaDengue/satellite-weather-downloader/commit/0397a2c205f99bce9f579da332621c2327577bc3))
+
 ## [1.11.1](https://github.com/osl-incubator/satellite-weather-downloader/compare/1.11.0...1.11.1) (2024-11-01)
 
 
