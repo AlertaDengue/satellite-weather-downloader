@@ -262,7 +262,7 @@ class ERA5LandRequest(BaseRequest):
                     "date": request.date,
                     "time": request.time,
                     "area": request.area,
-                    "format": request.format,
+                    "data_format": request.format,
                     "download_format": request.download_format,
                 },
                 str(output),
