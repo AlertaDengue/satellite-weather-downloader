@@ -97,8 +97,7 @@ class CopeExtension(CopeExtensionBase):
             )
             if verbose:
                 logger.info(
-                    f"{adm.code} updated on "
-                    f"{schema + '.' if schema else ''}{tablename}"
+                    f"{adm.code} updated on {schema + '.' if schema else ''}{tablename}"
                 )
 
     def adm_ds(self, adm: ADM):
@@ -174,9 +173,10 @@ def _convert_units(ds: xr.Dataset) -> xr.Dataset:
     del ds
     _vars = list(_ds.data_vars.keys())
 
-    parsed_vars = {
-        "valid_time": "time",
-    }
+    parsed_vars = {}
+
+    if "valid_time" in _ds.coords:
+        parsed_vars["valid_time"] = "time"
 
     if "t2m" in _vars:
         _ds["t2m"] = _ds.t2m - 273.15

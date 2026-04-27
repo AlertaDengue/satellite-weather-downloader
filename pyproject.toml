@@ -30,10 +30,10 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4"
+python = ">=3.11,<4"
 cdsapi = ">=0.7.3"
-pandas = "<2"
-numpy = "<2.0.0"
+pandas = ">=3,<4"
+numpy = ">=2.3.3,<3"
 python-dotenv = "^0.21.0"
 netCDF4 = "^1.6.1"
 tqdm = "^4.64.1"
@@ -54,6 +54,7 @@ xarray = "<2024.10"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4"
+pytest-cov = ">=4.1"
 jupyterlab = "^3.4.8"
 seaborn = "^0.12.1"
 pre-commit = "^2.20.0"
