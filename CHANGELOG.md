@@ -1,6 +1,18 @@
 Release Notes
 ---
 
+# [2.0.0](https://github.com/AlertaDengue/satellite-weather-downloader/compare/1.11.3...2.0.0) (2026-04-27)
+
+
+### deps
+
+* update pandas to latest version ([#76](https://github.com/AlertaDengue/satellite-weather-downloader/issues/76)) ([238cf23](https://github.com/AlertaDengue/satellite-weather-downloader/commit/238cf237c7874af8aebd618ce1da5e0ea090bce9))
+
+
+### BREAKING CHANGES
+
+* pin python version to >=3.11
+
 ## [1.11.3](https://github.com/AlertaDengue/satellite-weather-downloader/compare/1.11.2...1.11.3) (2025-03-18)
 
 
