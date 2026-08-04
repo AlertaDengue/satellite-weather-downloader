@@ -37,7 +37,9 @@ class CopeExtensionBase(ABC):
     precip_min : Minimum┐
     precip_med : Average├─ of total precipitation in `mm` given a geocode.
     precip_max : Maximum┘
-    precip_tot : Total precipitation in `mm` given a geocode.
+    precip_tot : Total daily precipitation in `mm` given a geocode. ERA5-Land
+                 `tp` is accumulated from 00 UTC, so the daily total of a UTC
+                 day is the `00:00` sample of the following day.
     pressao_min: Minimum┐
     pressao_med: Average├─ sea level pressure in `hPa` given a geocode.
     pressao_max: Maximum┘
@@ -141,16 +143,23 @@ def _adm_ds(ds: xr.Dataset, adm: ADM) -> xr.Dataset:
     weightmap = xa.pixel_overlaps(ds, adm.to_dataframe(), silent=True)
     ds = xa.aggregate(ds, weightmap, silent=True).to_dataset().sortby("time")
     gb = ds.resample(time="1D")
-    gmin, gmean, gmax, gtot = (
+    gmin, gmean, gmax = (
         _reduce_by(gb, np.min, "min"),
         _reduce_by(gb, np.mean, "med"),
         _reduce_by(gb, np.max, "max"),
-        _reduce_by(gb, np.sum, "tot"),
     )
     coords = [ds.code, ds.name, gmin, gmean, gmax]
-    if "precip_tot" in gtot.data_vars:
-        coords.append(gtot.precip_tot)
-    return xr.combine_by_coords(coords, data_vars="all")
+    if "precip" in ds.data_vars:
+        coords.append(_daily_precip_tot(ds))
+    result = xr.combine_by_coords(coords, data_vars="all")
+    if "precip_tot" in result.data_vars:
+        result = result.dropna(dim="time", subset=["precip_tot"], how="all")
+    return result
+
+
+def _daily_precip_tot(ds: xr.Dataset) -> xr.DataArray:
+    precip00 = ds["precip"].sel(time=ds.time.dt.hour == 0).sortby("time")
+    return precip00.shift(time=-1).rename("precip_tot")
 
 
 def _reduce_by(ds: xr.Dataset, func, prefix: str) -> xr.Dataset:

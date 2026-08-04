@@ -13,10 +13,28 @@ from satellite.extensions.cope import CopeExtension
 logger = loguru.logger
 
 
+def _load_with_next_day_tp(path: str) -> xr.Dataset:
+    main = DataSet.from_netcdf(path)
+    extra = xr.Dataset(
+        data_vars={
+            "tp": (
+                ("time", "latitude", "longitude"),
+                np.full((1, main.sizes["latitude"], main.sizes["longitude"]), 0.05),
+            )
+        },
+        coords={
+            "time": pd.to_datetime(["2023-01-02T00:00:00"]),
+            "latitude": main.latitude,
+            "longitude": main.longitude,
+        },
+    )
+    return xr.concat([main, extra], dim="time")
+
+
 class TestWeatherCopebr(unittest.TestCase):
     def setUp(self) -> None:
         self.file = Path(__file__).parent / "data" / "BR_20230101.nc"
-        self.dataset = DataSet.from_netcdf((str(self.file)))
+        self.dataset = _load_with_next_day_tp(str(self.file))
 
     def test_get_latlons_from_geocode(self):
         adm = ADM2.get(code="3304557", adm0="BRA")
@@ -36,7 +54,7 @@ class TestWeatherCopebr(unittest.TestCase):
 class TestCopeExtension(unittest.TestCase):
     def setUp(self) -> None:
         self.file = Path(__file__).parent / "data" / "BR_20230101.nc"
-        self.dataset = DataSet.from_netcdf(str(self.file))
+        self.dataset = _load_with_next_day_tp(str(self.file))
 
     def test_cope_accessor_exists(self):
         self.assertTrue(hasattr(self.dataset, "cope"))
@@ -195,11 +213,86 @@ class TestCopeExtension(unittest.TestCase):
             )
             self.assertEqual(mock_df.call_count, 2)
 
+    def test_adm_ds_uses_next_day_00h_for_precip_tot(self):
+        adm = ADM2.get(code="3304557", adm0="BRA")
+        ds = self.dataset.cope.adm_ds(adm)
+        self.assertEqual(ds["time"].size, 1)
+        self.assertEqual(
+            pd.to_datetime(ds["time"].values[0]), pd.Timestamp("2023-01-01")
+        )
+        self.assertTrue(np.allclose(ds["precip_tot"].values, 50.0, atol=1e-4))
+
+
+class TestDailyPrecipTot(unittest.TestCase):
+    def test_daily_precip_tot_uses_next_day_00h(self):
+        from satellite.extensions.cope import _daily_precip_tot
+
+        times = pd.date_range("2023-01-01 00:00", "2023-01-04 21:00", freq="3h")
+        vals = np.array(
+            [
+                5,
+                7,
+                9,
+                11,
+                12,
+                13,
+                14,
+                15,
+                15,
+                20,
+                25,
+                27,
+                29,
+                31,
+                33,
+                35,
+                35,
+                45,
+                50,
+                55,
+                58,
+                60,
+                63,
+                65,
+                65,
+                65,
+                65,
+                65,
+                65,
+                65,
+                65,
+                65,
+            ],
+            dtype=float,
+        )
+        ds = xr.Dataset({"precip": ("time", vals)}, coords={"time": times})
+
+        tot = _daily_precip_tot(ds)
+
+        np.testing.assert_allclose(tot.sel(time="2023-01-01").values, 15.0)
+        np.testing.assert_allclose(tot.sel(time="2023-01-02").values, 35.0)
+        np.testing.assert_allclose(tot.sel(time="2023-01-03").values, 65.0)
+        self.assertTrue(np.isnan(tot.sel(time="2023-01-04").values))
+
+    def test_daily_precip_tot_drops_last_day(self):
+        from satellite.extensions.cope import _daily_precip_tot
+
+        times = pd.date_range("2023-01-01 00:00", "2023-01-02 21:00", freq="3h")
+        vals = np.array(
+            [5, 7, 9, 11, 12, 13, 14, 15, 15, 20, 25, 27, 29, 31, 33, 35],
+            dtype=float,
+        )
+        ds = xr.Dataset({"precip": ("time", vals)}, coords={"time": times})
+        tot = _daily_precip_tot(ds).dropna(dim="time")
+
+        self.assertEqual(pd.to_datetime(tot.time.values[0]), pd.Timestamp("2023-01-01"))
+        np.testing.assert_allclose(tot.values, 15.0)
+
 
 class TestConvertUnits(unittest.TestCase):
     def setUp(self) -> None:
         self.file = Path(__file__).parent / "data" / "BR_20230101.nc"
-        self.dataset = DataSet.from_netcdf(str(self.file))
+        self.dataset = _load_with_next_day_tp(str(self.file))
 
     def test_temperature_converted_to_celsius(self):
         adm = ADM2.get(code="3304557", adm0="BRA")
