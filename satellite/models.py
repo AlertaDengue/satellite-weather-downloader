@@ -238,18 +238,20 @@ class ERA5LandRequest(BaseRequest):
     # pylint: disable=maybe-no-member
     def download(self, output: str) -> str:
         request: ERA5LandSpecs = self.request
-        output = Path(output)
+        outpath = Path(output)
 
         if request.download_format == "zip":
-            output = output.with_suffix(".zip")
+            outpath = outpath.with_suffix(".zip")
         else:
             if request.format == "netcdf":
-                output = output.with_suffix(".nc")
+                outpath = outpath.with_suffix(".nc")
             else:
-                output = output.with_suffix(".grib")
+                outpath = outpath.with_suffix(".grib")
 
-        if not output.is_dir() and output.exists():
-            return str(output)
+        if not outpath.is_dir() and outpath.exists():
+            if _is_valid_download(outpath):
+                return str(outpath)
+            outpath.unlink(missing_ok=True)
 
         client = self.get_client(self.api_key)
 
@@ -265,13 +267,17 @@ class ERA5LandRequest(BaseRequest):
                     "data_format": request.format,
                     "download_format": request.download_format,
                 },
-                str(output),
+                str(outpath),
             )
         except (RequestException, KeyboardInterrupt) as e:
-            output.unlink(missing_ok=True)
+            outpath.unlink(missing_ok=True)
             raise e
 
-        return str(output)
+        if not _is_valid_download(outpath):
+            outpath.unlink(missing_ok=True)
+            raise ValueError(f"Downloaded file {outpath} is empty or corrupted")
+
+        return str(outpath)
 
 
 class DataSet:
@@ -286,3 +292,17 @@ class DataSet:
                     data = zfile.read()
                     return xr.open_dataset(io.BytesIO(data), engine="h5netcdf")
         return xr.open_dataset(fpath, engine="netcdf4")
+
+
+def _is_valid_download(path: Path) -> bool:
+    """Return True if *path* looks like a valid downloaded file."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    if path.suffix == ".zip":
+        try:
+            with zipfile.ZipFile(path, "r") as zf:
+                if len(zf.namelist()) == 0:
+                    return False
+        except zipfile.BadZipFile:
+            return False
+    return True

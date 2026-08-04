@@ -86,6 +86,7 @@ A metodologia implementada no pacote `satellite-weather-downloader` para agregar
         * Média (sufixo `_med`)
         * Máximo (sufixo `_max`)
         * Soma (sufixo `_tot`, especificamente para precipitação: `precip_tot`)
+        * Precipitação Total (`precip_tot`): a variável `tp` do ERA5-Land é acumulada a partir das 00:00 UTC, portanto o valor registrado às 00:00 de um dia corresponde à precipitação total do dia anterior. O total diário de um dia D é o valor de `tp` às 00:00 do dia D+1. Para obter esse valor, a requisição inclui um segundo download menor, contendo apenas `total_precipitation` às 00:00 do dia seguinte ao último dia solicitado.
 * **Formato de Saída**:
     * Os dados são estruturados em um `pandas.DataFrame`.
     * Inclui colunas como `date` (data), `geocode` (código do município), e `epiweek` (semana epidemiológica calculada a partir da data).
@@ -113,6 +114,7 @@ The methodology implemented in the `satellite-weather-downloader` package to agg
         * Mean (suffix `_med`)
         * Maximum (suffix `_max`)
         * Sum (suffix `_tot`, specifically for precipitation: `precip_tot`)
+        * Total Precipitation (`precip_tot`): ERA5-Land `tp` is accumulated from 00 UTC, so the value recorded at a given day's 00:00 corresponds to the previous day's total precipitation. The daily total of a day D is the `tp` value at 00:00 of day D+1. To obtain it, the request includes a second, smaller download containing only `total_precipitation` at 00:00 of the day following the last requested day.
 * **Output Format**:
     * Data is structured into a `pandas.DataFrame`.
     * Includes columns such as `date`, `geocode` (municipality code), and `epiweek` (epidemiological week calculated from the date).
