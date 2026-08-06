@@ -15,7 +15,6 @@ _DEFAULT_VARIABLES = [
 ]
 
 _DEFAULT_TIMES = [
-    "00:00",
     "03:00",
     "06:00",
     "09:00",
@@ -23,6 +22,7 @@ _DEFAULT_TIMES = [
     "15:00",
     "18:00",
     "21:00",
+    "00:00",
 ]
 
 
@@ -31,7 +31,7 @@ class ReanalysisERA5Land:
 
     Handles download, precipitation accumulation correction, and dataset
     loading.  The output dataset is ready for use with the ``.cope``
-    extension (``ds.cope.to_dataframe(adm)``).
+    extension (``ds.cope.to_dataframe(adm)``)
 
     Usage::
 
