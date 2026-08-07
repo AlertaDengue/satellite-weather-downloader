@@ -1,6 +1,14 @@
 Release Notes
 ---
 
+## [2.0.1](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.0...2.0.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* ERA5-Land uses cummulative tp rather than progressive one ([#77](https://github.com/AlertaDengue/satellite-weather-downloader/issues/77)) ([0cad89e](https://github.com/AlertaDengue/satellite-weather-downloader/commit/0cad89e85906de05064dcc92ca22075735d793a9))
+* minor fix on precip_tot fetch ([#78](https://github.com/AlertaDengue/satellite-weather-downloader/issues/78)) ([98c1391](https://github.com/AlertaDengue/satellite-weather-downloader/commit/98c13915ca92e5e77a33ca66e666e4edcb5e361b))
+
 # [2.0.0](https://github.com/AlertaDengue/satellite-weather-downloader/compare/1.11.3...2.0.0) (2026-04-27)
 
 
