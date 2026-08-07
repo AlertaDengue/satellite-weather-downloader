@@ -129,7 +129,12 @@ def _adm_to_dataframe(dataset: xr.Dataset, adm: ADM) -> pd.DataFrame:
     df = ds.to_dataframe().reset_index()
     del ds
     df = df.drop(columns=["poly_idx", "name"])
-    df = df.assign(epiweek=int(str(Week.fromdate(pd.to_datetime(df.time)[0]))))
+    if df.empty:
+        return pd.DataFrame(
+            columns=["time", "code", "epiweek"]
+            + [c for c in df.columns if c not in ("poly_idx", "name", "time", "code")]
+        )
+    df = df.assign(epiweek=int(str(Week.fromdate(pd.to_datetime(df.time).iloc[0]))))
     columns_to_round = list(
         set(df.columns).difference(set(["time", "code", "epiweek"]))
     )
@@ -142,6 +147,12 @@ def _adm_ds(ds: xr.Dataset, adm: ADM) -> xr.Dataset:
     ds = _convert_units(ds)
     weightmap = xa.pixel_overlaps(ds, adm.to_dataframe(), silent=True)
     ds = xa.aggregate(ds, weightmap, silent=True).to_dataset().sortby("time")
+
+    precip_tot_da = None
+    if "precip" in ds.data_vars:
+        precip_tot_da = _daily_precip_tot(ds)
+        ds["precip"] = _compute_hourly_increments(ds["precip"])
+
     gb = ds.resample(time="1D")
     gmin, gmean, gmax = (
         _reduce_by(gb, np.min, "min"),
@@ -149,8 +160,8 @@ def _adm_ds(ds: xr.Dataset, adm: ADM) -> xr.Dataset:
         _reduce_by(gb, np.max, "max"),
     )
     coords = [ds.code, ds.name, gmin, gmean, gmax]
-    if "precip" in ds.data_vars:
-        coords.append(_daily_precip_tot(ds))
+    if precip_tot_da is not None:
+        coords.append(precip_tot_da)
     result = xr.combine_by_coords(coords, data_vars="all")
     if "precip_tot" in result.data_vars:
         result = result.dropna(dim="time", subset=["precip_tot"], how="all")
@@ -160,6 +171,48 @@ def _adm_ds(ds: xr.Dataset, adm: ADM) -> xr.Dataset:
 def _daily_precip_tot(ds: xr.Dataset) -> xr.DataArray:
     precip00 = ds["precip"].sel(time=ds.time.dt.hour == 0).sortby("time")
     return precip00.shift(time=-1).rename("precip_tot")
+
+
+def _compute_hourly_increments(da: xr.DataArray) -> xr.DataArray:
+    """Convert cumulative tp to hourly increments.
+
+    ERA5-Land tp at 00:00 is the accumulated total for the previous day.
+    At other hours (03, 06, 09, ...) it is accumulated from 00:00 of the
+    current day. So the increment for each step is:
+
+    - 00:00: the value itself (previous day's total, used as-is for precip_tot)
+    - First step after 00:00: the value itself (accumulation from midnight)
+    - Subsequent steps: value[i] - value[i-1]
+    - Last step before next 00:00: value[i] - value[i-1] (already correct
+      since the next 00:00 starts a new accumulation cycle)
+    """
+    da = da.sortby("time")
+    hours = da.time.dt.hour.values
+    increments = da.copy()
+    ntimes = len(hours)
+
+    orig_shape = da.values.shape
+    flat = da.values.reshape(-1, ntimes)
+
+    for row in range(flat.shape[0]):
+        src = flat[row]
+        out = np.empty(ntimes)
+        out[0] = src[0]  # 00:00 = previous day total
+
+        for i in range(1, ntimes):
+            if hours[i - 1] == 0:
+                # Previous step was 00:00: current step starts a new
+                # accumulation cycle from midnight, so the increment IS
+                # the value itself (not a diff from 00:00).
+                out[i] = src[i]
+            else:
+                out[i] = src[i] - src[i - 1]
+
+        flat[row] = out
+
+    np.clip(flat, 0, None, out=flat)
+    increments.values = flat.reshape(orig_shape)
+    return increments
 
 
 def _reduce_by(ds: xr.Dataset, func, prefix: str) -> xr.Dataset:
