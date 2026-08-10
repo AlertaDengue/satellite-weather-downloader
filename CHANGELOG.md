@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [2.0.2](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.1...2.0.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* include batch to df ([#79](https://github.com/AlertaDengue/satellite-weather-downloader/issues/79)) ([1ab1885](https://github.com/AlertaDengue/satellite-weather-downloader/commit/1ab1885c39d998c36c0f2c5ffbc21fe4c2860544))
+
 ## [2.0.1](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.0...2.0.1) (2026-08-07)
 
 
