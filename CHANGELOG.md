@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [2.0.3](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.2...2.0.3) (2026-08-10)
+
+
+### Bug Fixes
+
+* revert gp.map() func ([#80](https://github.com/AlertaDengue/satellite-weather-downloader/issues/80)) ([6ee7fa4](https://github.com/AlertaDengue/satellite-weather-downloader/commit/6ee7fa4da8798c1f4ad54beec994dd8506b79c97))
+
 ## [2.0.2](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.1...2.0.2) (2026-08-10)
 
 
