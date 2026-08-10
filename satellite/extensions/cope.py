@@ -105,6 +105,86 @@ class CopeExtension(CopeExtensionBase):
     def adm_ds(self, adm: ADM):
         return _adm_ds(ds=self._ds, adm=adm)
 
+    def batch_to_df(
+        self, gdf: "pd.DataFrame", exclude_geocodes: Optional[set] = None
+    ) -> "pd.DataFrame":
+        """Compute all weather stats for all municipalities at once.
+
+        Returns DataFrame with columns matching copernicus_bra:
+        date, geocode, epiweek, temp_min, temp_med, temp_max,
+        precip_min, precip_med, precip_max, precip_tot,
+        pressao_min, pressao_med, pressao_max,
+        umid_min, umid_med, umid_max.
+
+        Much faster than per-ADM to_dataframe/to_sql.
+        """
+        import pandas as pd
+        import numpy as np
+        from epiweeks import Week
+
+        ds = _convert_units(self._ds)
+        weightmap = xa.pixel_overlaps(ds, gdf, silent=True)
+        agg = xa.aggregate(ds, weightmap, silent=True).to_dataset().sortby("time")
+
+        precip_tot_da = None
+        if "precip" in agg.data_vars:
+            precip_tot_da = _daily_precip_tot(agg)
+            agg["precip"] = _compute_hourly_increments(agg["precip"])
+
+        gb = agg.resample(time="1D")
+        gmin = gb.map(np.min).drop_vars(
+            ["code", "name", "adm1", "adm0"], errors="ignore"
+        )
+        gmean = gb.map(np.mean).drop_vars(
+            ["code", "name", "adm1", "adm0"], errors="ignore"
+        )
+        gmax = gb.map(np.max).drop_vars(
+            ["code", "name", "adm1", "adm0"], errors="ignore"
+        )
+
+        codes = np.array([str(c) for c in agg.code.values])
+        if exclude_geocodes:
+            keep = np.array([c not in exclude_geocodes for c in codes])
+            pi_range = np.where(keep)[0]
+        else:
+            pi_range = range(len(codes))
+
+        varnames = sorted(gmin.data_vars)
+        prefixes = {}
+        for v in varnames:
+            if v.endswith("_min"):
+                prefixes.setdefault(v[:-4], {})["min"] = v
+            elif v.endswith("_med"):
+                prefixes.setdefault(v[:-4], {})["med"] = v
+            elif v.endswith("_max"):
+                prefixes.setdefault(v[:-4], {})["max"] = v
+
+        records = []
+        for pi in pi_range:
+            for ti in range(len(gmin.time)):
+                dt = pd.to_datetime(gmin.time.values[ti]).date()
+                epiweek = int(str(Week.fromdate(dt)))
+                row = {"date": dt, "geocode": codes[pi], "epiweek": epiweek}
+
+                for prefix, cols in prefixes.items():
+                    for suffix in ("min", "med", "max"):
+                        key = f"{prefix}_{suffix}"
+                        col_name = cols.get(suffix)
+                        if col_name and col_name in gmin.data_vars:
+                            source = {"min": gmin, "med": gmean, "max": gmax}[suffix]
+                            val = float(
+                                source[col_name].isel(poly_idx=pi, time=ti).values
+                            )
+                            row[key] = round(val, 4) if not np.isnan(val) else None
+
+                if precip_tot_da is not None:
+                    pt = float(precip_tot_da.isel(poly_idx=pi, time=ti).values)
+                    row["precip_tot"] = round(pt, 4) if not np.isnan(pt) else None
+
+                records.append(row)
+
+        return pd.DataFrame(records)
+
 
 def _geocode_to_sql(
     dataset: xr.Dataset,
