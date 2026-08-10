@@ -118,29 +118,42 @@ class CopeExtension(CopeExtensionBase):
 
         Much faster than per-ADM to_dataframe/to_sql.
         """
+        import time
         import pandas as pd
         import numpy as np
         from epiweeks import Week
 
+        t0 = time.time()
         ds = _convert_units(self._ds)
+        logger.info(f"  units converted ({time.time()-t0:.0f}s)")
+
+        t0 = time.time()
         weightmap = xa.pixel_overlaps(ds, gdf, silent=True)
+        logger.info(f"  weightmap built ({time.time()-t0:.0f}s)")
+
+        t0 = time.time()
         agg = xa.aggregate(ds, weightmap, silent=True).to_dataset().sortby("time")
+        logger.info(f"  aggregated ({time.time()-t0:.0f}s, {agg.dims})")
 
         precip_tot_da = None
         if "precip" in agg.data_vars:
             precip_tot_da = _daily_precip_tot(agg)
             agg["precip"] = _compute_hourly_increments(agg["precip"])
 
+            # Exclude 00:00 from intraday stats: it's the previous day total,
+            # not an increment within the current day.
+            mask_00 = agg.time.dt.hour == 0
+            pvals = agg["precip"].values.copy()
+            taxis = agg["precip"].dims.index("time")
+            slc = [slice(None)] * pvals.ndim
+            slc[taxis] = mask_00.values
+            pvals[tuple(slc)] = np.nan
+            agg["precip"].values = pvals
+
         gb = agg.resample(time="1D")
-        gmin = gb.map(np.min).drop_vars(
-            ["code", "name", "adm1", "adm0"], errors="ignore"
-        )
-        gmean = gb.map(np.mean).drop_vars(
-            ["code", "name", "adm1", "adm0"], errors="ignore"
-        )
-        gmax = gb.map(np.max).drop_vars(
-            ["code", "name", "adm1", "adm0"], errors="ignore"
-        )
+        gmin = _reduce_by(gb, np.nanmin, "min")
+        gmean = _reduce_by(gb, np.nanmean, "med")
+        gmax = _reduce_by(gb, np.nanmax, "max")
 
         codes = np.array([str(c) for c in agg.code.values])
         if exclude_geocodes:
@@ -183,7 +196,9 @@ class CopeExtension(CopeExtensionBase):
 
                 records.append(row)
 
-        return pd.DataFrame(records)
+        df = pd.DataFrame(records)
+        logger.info(f"  dataframe built ({len(df)} rows, {len(df.columns)} cols)")
+        return df
 
 
 def _geocode_to_sql(
