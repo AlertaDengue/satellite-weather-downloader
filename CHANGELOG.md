@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [2.0.4](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.3...2.0.4) (2026-08-11)
+
+
+### Bug Fixes
+
+* some vars are nan when overlapping dgf ([#81](https://github.com/AlertaDengue/satellite-weather-downloader/issues/81)) ([b01ac3c](https://github.com/AlertaDengue/satellite-weather-downloader/commit/b01ac3c556ec43a048a2b47d41f5d897a71ec7e7))
+
 ## [2.0.3](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.2...2.0.3) (2026-08-10)
 
 
