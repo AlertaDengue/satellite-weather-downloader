@@ -125,15 +125,15 @@ class CopeExtension(CopeExtensionBase):
 
         t0 = time.time()
         ds = _convert_units(self._ds)
-        logger.info(f"  units converted ({time.time()-t0:.0f}s)")
+        logger.info(f"  units converted ({time.time() - t0:.0f}s)")
 
         t0 = time.time()
         weightmap = xa.pixel_overlaps(ds, gdf, silent=True)
-        logger.info(f"  weightmap built ({time.time()-t0:.0f}s)")
+        logger.info(f"  weightmap built ({time.time() - t0:.0f}s)")
 
         t0 = time.time()
         agg = xa.aggregate(ds, weightmap, silent=True).to_dataset().sortby("time")
-        logger.info(f"  aggregated ({time.time()-t0:.0f}s, {agg.dims})")
+        logger.info(f"  aggregated ({time.time() - t0:.0f}s, {agg.dims})")
 
         precip_tot_da = None
         if "precip" in agg.data_vars:
@@ -151,9 +151,14 @@ class CopeExtension(CopeExtensionBase):
             agg["precip"].values = pvals
 
         gb = agg.resample(time="1D")
-        gmin = _reduce_by(gb, np.nanmin, "min")
-        gmean = _reduce_by(gb, np.nanmean, "med")
-        gmax = _reduce_by(gb, np.nanmax, "max")
+        gmin = _reduce_by_nan(gb, np.nanmin, "min")
+        gmean = _reduce_by_nan(agg.resample(time="1D"), np.nanmean, "med")
+        gmax = _reduce_by_nan(agg.resample(time="1D"), np.nanmax, "max")
+        logger.info(
+            f"  gmin={list(gmin.data_vars)}, "
+            f"gmean={list(gmean.data_vars)}, "
+            f"gmax={list(gmax.data_vars)}"
+        )
 
         codes = np.array([str(c) for c in agg.code.values])
         if exclude_geocodes:
@@ -162,7 +167,9 @@ class CopeExtension(CopeExtensionBase):
         else:
             pi_range = range(len(codes))
 
-        varnames = sorted(gmin.data_vars)
+        varnames = sorted(
+            set(gmin.data_vars) | set(gmean.data_vars) | set(gmax.data_vars)
+        )
         prefixes = {}
         for v in varnames:
             if v.endswith("_min"):
@@ -183,12 +190,13 @@ class CopeExtension(CopeExtensionBase):
                     for suffix in ("min", "med", "max"):
                         key = f"{prefix}_{suffix}"
                         col_name = cols.get(suffix)
-                        if col_name and col_name in gmin.data_vars:
+                        if col_name:
                             source = {"min": gmin, "med": gmean, "max": gmax}[suffix]
-                            val = float(
-                                source[col_name].isel(poly_idx=pi, time=ti).values
-                            )
-                            row[key] = round(val, 4) if not np.isnan(val) else None
+                            if col_name in source.data_vars:
+                                val = float(
+                                    source[col_name].isel(poly_idx=pi, time=ti).values
+                                )
+                                row[key] = round(val, 4) if not np.isnan(val) else None
 
                 if precip_tot_da is not None:
                     pt = float(precip_tot_da.isel(poly_idx=pi, time=ti).values)
@@ -322,6 +330,27 @@ def _reduce_by(ds: xr.Dataset, func, prefix: str) -> xr.Dataset:
                 list(map(lambda x: f"{x}_{prefix}", list(ds.data_vars))),
             )
         )
+    )
+
+
+def _reduce_by_nan(ds: xr.Dataset, func, prefix: str) -> xr.Dataset:
+    """Like _reduce_by but uses func that can't handle xr.Dataset (e.g. nanmin)."""
+    import pandas as pd
+
+    groups = []
+    times = []
+    for label, group in ds:
+        result = {}
+        for var in group.data_vars:
+            if var in ("code", "name", "adm1", "adm0"):
+                continue
+            result[var] = (group[var].dims[:-1], func(group[var].values, axis=-1))
+        groups.append(xr.Dataset(result))
+        times.append(pd.to_datetime(str(label)))
+    result = xr.concat(groups, dim="time")
+    result["time"] = times
+    return result.drop_vars(["code", "name", "adm1", "adm0"], errors="ignore").rename(
+        dict(zip(list(result.data_vars), [f"{x}_{prefix}" for x in result.data_vars]))
     )
 
 
