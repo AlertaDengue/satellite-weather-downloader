@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [2.0.6](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.5...2.0.6) (2026-08-28)
+
+
+### Bug Fixes
+
+* include a cleanup to delete zip files after request context's closes ([#83](https://github.com/AlertaDengue/satellite-weather-downloader/issues/83)) ([c93c48b](https://github.com/AlertaDengue/satellite-weather-downloader/commit/c93c48be66c10a68e68c27fd1ac287309445ab87))
+
 ## [2.0.5](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.4...2.0.5) (2026-08-28)
 
 
