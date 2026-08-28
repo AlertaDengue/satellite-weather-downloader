@@ -213,6 +213,13 @@ class TestCopeExtension(unittest.TestCase):
             )
             self.assertEqual(mock_df.call_count, 2)
 
+    def test_batch_to_df_drops_partial_trailing_day(self):
+        adm = ADM2.get(code="3304557", adm0="BRA")
+        df = self.dataset.cope.batch_to_df(adm.to_dataframe())
+        self.assertEqual(list(df["date"].astype(str).unique()), ["2023-01-01"])
+        self.assertTrue(df["precip_tot"].notna().all())
+        self.assertFalse(df[["temp_med", "msl_med", "umid_med"]].eq(0).all().all())
+
     def test_adm_ds_uses_next_day_00h_for_precip_tot(self):
         adm = ADM2.get(code="3304557", adm0="BRA")
         ds = self.dataset.cope.adm_ds(adm)

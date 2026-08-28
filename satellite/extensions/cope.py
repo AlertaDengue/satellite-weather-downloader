@@ -140,9 +140,11 @@ class CopeExtension(CopeExtensionBase):
             precip_tot_da = _daily_precip_tot(agg)
             agg["precip"] = _compute_hourly_increments(agg["precip"])
 
-            # Exclude 00:00 from intraday stats: it's the previous day total,
-            # not an increment within the current day.
-            mask_00 = agg.time.dt.hour == 0
+            # Exclude only the 00:00 of the first day (previous day total).
+            # The 00:00 of the next day is the last increment — keep it.
+            dates = agg.time.dt.date.values
+            first_date = dates[0]
+            mask_00 = (agg.time.dt.hour == 0) & (dates == first_date)
             pvals = agg["precip"].values.copy()
             taxis = agg["precip"].dims.index("time")
             slc = [slice(None)] * pvals.ndim
@@ -179,9 +181,19 @@ class CopeExtension(CopeExtensionBase):
             elif v.endswith("_max"):
                 prefixes.setdefault(v[:-4], {})["max"] = v
 
+        # Drop resample days that only contain the next-day 00:00 tp sample
+        # (fetched to close the daily precip total). Those have no real weather
+        # data and yield all-zero rows with an undefined precip_tot.
+        day_valid = None
+        if precip_tot_da is not None:
+            day_tot = precip_tot_da.resample(time="1D").max()
+            day_valid = day_tot.notnull().any(dim="poly_idx").values
+
         records = []
         for pi in pi_range:
             for ti in range(len(gmin.time)):
+                if day_valid is not None and not day_valid[ti]:
+                    continue
                 dt = pd.to_datetime(gmin.time.values[ti]).date()
                 epiweek = int(str(Week.fromdate(dt)))
                 row = {"date": dt, "geocode": codes[pi], "epiweek": epiweek}

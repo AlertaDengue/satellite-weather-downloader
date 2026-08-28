@@ -272,6 +272,9 @@ class ERA5LandRequest(BaseRequest):
         except (RequestException, KeyboardInterrupt) as e:
             outpath.unlink(missing_ok=True)
             raise e
+        finally:
+            if hasattr(client, "session"):
+                client.session.close()
 
         if not _is_valid_download(outpath):
             outpath.unlink(missing_ok=True)
