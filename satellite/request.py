@@ -117,11 +117,16 @@ def reanalysis_era5_land(
     area: Optional[Dict[Literal["N", "S", "W", "E"], float]] = None,
     format: Literal["grib", "netcdf"] = "netcdf",
     download_format: Literal["zip", "unarchived"] = "zip",
+    remove_files: bool = False,
 ) -> xr.Dataset:
     """Download ERA5-Land reanalysis and return an ``xr.Dataset``.
 
     This is a convenience function that wraps :class:`ReanalysisERA5Land`.
     See the class docstring for parameter details.
+
+    If ``remove_files`` is True the downloaded artifacts (the main file and,
+    when ``total_precipitation`` is requested, the next-day ``00:00`` sample)
+    are deleted from disk once the data is loaded into memory.
     """
     overrides = {}
     if product_type is not None:
@@ -137,16 +142,38 @@ def reanalysis_era5_land(
         download_format=download_format,
         api_token=api_token,
     )
-    ds = req._download(output, **overrides)
+    main_req = ERA5LandRequest(
+        api_key=req.api_token, request=req._build_request(**overrides)
+    )
+    ds, main_path = _load_or_download_with_path(main_req, output)
 
-    if variable is not None and "total_precipitation" not in variable:
+    needs_precip = (variable is not None and "total_precipitation" in variable) or (
+        variable is None and "total_precipitation" in _DEFAULT_VARIABLES
+    )
+    if not needs_precip:
+        if remove_files:
+            ds = ds.load()
+            Path(main_path).unlink(missing_ok=True)
         return ds
 
-    if variable is None and "total_precipitation" not in _DEFAULT_VARIABLES:
-        return ds
+    tp_req = ERA5LandRequest(
+        api_key=req.api_token,
+        request=req._build_request(
+            date=_next_day(req.date),
+            variable=["total_precipitation"],
+            time=["00:00"],
+        ),
+    )
+    tp_next_day, tp_path = _load_or_download_with_path(
+        tp_req, f"{Path(output).with_suffix('')}_tp"
+    )
+    result = xr.concat([ds, tp_next_day], dim="time", combine_attrs="override")
 
-    tp_next_day = req._download_tp_next_day(output)
-    return xr.concat([ds, tp_next_day], dim="time", combine_attrs="override")
+    if remove_files:
+        result = result.load()
+        Path(main_path).unlink(missing_ok=True)
+        Path(tp_path).unlink(missing_ok=True)
+    return result
 
 
 def _next_day(date_str: str) -> str:
@@ -155,6 +182,13 @@ def _next_day(date_str: str) -> str:
 
 
 def _load_or_download(req: ERA5LandRequest, output: str) -> xr.Dataset:
+    ds, _ = _load_or_download_with_path(req, output)
+    return ds
+
+
+def _load_or_download_with_path(
+    req: ERA5LandRequest, output: str
+) -> tuple[xr.Dataset, str]:
     path = req.download(output)
 
     if not Path(path).exists():
@@ -173,4 +207,4 @@ def _load_or_download(req: ERA5LandRequest, output: str) -> xr.Dataset:
 
     if "valid_time" in ds.coords:
         ds = ds.rename({"valid_time": "time"})
-    return ds
+    return ds, path
