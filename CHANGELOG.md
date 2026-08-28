@@ -1,6 +1,13 @@
 Release Notes
 ---
 
+## [2.0.5](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.4...2.0.5) (2026-08-28)
+
+
+### Bug Fixes
+
+* **cope:** batch_to_df is generating a date repeated NaN row due to precip_tot new calc ([#82](https://github.com/AlertaDengue/satellite-weather-downloader/issues/82)) ([9d7def1](https://github.com/AlertaDengue/satellite-weather-downloader/commit/9d7def16af0f49e437c9ebe67cab0e162f0d77e3))
+
 ## [2.0.4](https://github.com/AlertaDengue/satellite-weather-downloader/compare/2.0.3...2.0.4) (2026-08-11)
 
 
